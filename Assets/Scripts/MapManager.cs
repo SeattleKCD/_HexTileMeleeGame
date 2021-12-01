@@ -188,4 +188,9 @@ public class MapManager : MonoBehaviour
         }
         Debug.Log("Clicked FullMoveButton, Move Range is " + highlightRange);
     }
+
+    public void QuitButtonPressed()
+    {
+        Application.Quit();
+    }
 }
