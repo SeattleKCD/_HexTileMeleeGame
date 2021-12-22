@@ -11,14 +11,23 @@ public class MapManager : MonoBehaviour
     private Tilemap map;
 
     [SerializeField]
+    Fighter pfFighterF;
+    [SerializeField]
+    int startXfF, startYfF;
+    [SerializeField]
+    GameObject fighterFUI;
+
+    [SerializeField]
     Fighter pfFighterP;
     [SerializeField]
-    int startX, startY;
+    int startXfP, startYfP;
+    [SerializeField]
+    GameObject fighterPUI;
 
-    Fighter fighterP;
-    private Vector3Int fighterPos;
+    Fighter fighterF, fighterP, curFighter;
+    private Vector3Int curPos;
     private int highlightRange;
-    bool performedMove = false;
+    bool performedMove, performedFace, fFMoving, fPMoving = false;
 
     private readonly static List<Vector3Int> evenNeighborDirs
         = new()
@@ -42,7 +51,6 @@ public class MapManager : MonoBehaviour
         new Vector3Int(1,-1,0)
     };
 
-    private TileBase prevClickedTile = null;
     private List<Vector3Int> visitedNodes = new();
 
     private List<Vector3Int> DetermineNeighborDirections(bool isEven)
@@ -62,38 +70,65 @@ public class MapManager : MonoBehaviour
     private void Start()
     {
         highlightRange = 1;
-        fighterPos = new Vector3Int(startX, startY, 0);
+        curPos = new Vector3Int(startXfF, startYfF, 0);
+        fighterF = Instantiate(pfFighterF);
+        fighterF.transform.position = map.CellToWorld(curPos);
+        fighterF.transform.rotation = Quaternion.Euler(0f, 0f, 30f);
+        curPos.x = startXfP;
+        curPos.y = startYfP;
         fighterP = Instantiate(pfFighterP);
-        fighterP.transform.position = map.CellToWorld(fighterPos);
-        fighterP.transform.rotation = Quaternion.Euler(0f, 0f, 210f);
+        fighterP.transform.position = map.CellToWorld(curPos);
+        fighterP.transform.rotation = Quaternion.Euler(0f, 0f, 30f);
     }
 
     // Update is called once per frame
     private void Update()
     {
-        if(Input.GetMouseButtonUp(0))
+        if(!(fFMoving || fPMoving))
+        {
+            curFighter = fighterF;
+            curPos = map.WorldToCell(curFighter.transform.position);
+            fFMoving = true;
+            performedMove = false;
+            performedFace = false;
+            fighterFUI.SetActive(true);
+        }
+        else if (fFMoving && performedMove && performedFace)
+        {
+            fFMoving = false;
+            fighterFUI.SetActive(false);
+            curFighter = fighterP;
+            curPos = map.WorldToCell(curFighter.transform.position);
+            fPMoving = true;
+            performedMove = false;
+            performedFace = false;
+            fighterPUI.SetActive(true);
+        }
+        else if (fPMoving && performedMove && performedFace)
+        {
+            fPMoving = false;
+            fighterPUI.SetActive(false);
+        }
+
+        if (Input.GetMouseButtonUp(0))
         {
             Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector3Int gridPosition = map.WorldToCell(mousePosition);
-            int rotationIndex;
 
             TileBase clickedTile = map.GetTile(gridPosition);
 
             if (map.HasTile(gridPosition) && visitedNodes.Contains(gridPosition))
             {
-                if (performedMove)
+                if (performedMove && !performedFace && gridPosition != curPos)
                 {
-                    rotationIndex = visitedNodes.IndexOf(gridPosition);
-                    Debug.Log("Rotation Index is " + rotationIndex);
-                    fighterP.transform.rotation = Quaternion.Euler(0f, 0f, (float)(330 - 60*rotationIndex));
+                    curFighter.transform.rotation = Quaternion.Euler(0f, 0f, CalculateRotation(gridPosition, curFighter.rotationBase));
                     ClearHighlight();
-                    performedMove = false;
+                    performedFace = true;
                 }
                 else
                 {
-                    fighterP.transform.position = map.CellToWorld(gridPosition);
-                    fighterPos = gridPosition;
-                    prevClickedTile = clickedTile;
+                    curFighter.transform.position = map.CellToWorld(gridPosition);
+                    curPos = gridPosition;
                     performedMove = true;
                     highlightRange = 1;
                     ShowRangeHighlight(Color.yellow);
@@ -102,6 +137,21 @@ public class MapManager : MonoBehaviour
 
             Debug.Log("Clicked " + clickedTile + " at position " + gridPosition);
         }        
+    }
+
+    private float CalculateRotation(Vector3Int facingLocation, int rotationBase)
+    {
+        int rotationIndex = 0;
+        List<Vector3Int> neigborNodes = new();
+
+        foreach (Vector3Int direction in DetermineNeighborDirections(curPos.y % 2 == 0))
+        {
+            neigborNodes.Add(curPos + direction);
+        }
+
+        rotationIndex = neigborNodes.IndexOf(facingLocation);
+        Debug.Log("Rotation Index is " + rotationIndex);
+        return (float)(rotationBase - 60 * rotationIndex);
     }
 
     private void ShowRangeHighlight(Color highlightColor)
@@ -114,7 +164,7 @@ public class MapManager : MonoBehaviour
 
         ClearHighlight();
 
-        curNode.nodeLocation = fighterPos;
+        curNode.nodeLocation = curPos;
         curNode.nodeDistance = 0;
 
         nodesToVisit.Enqueue(curNode);

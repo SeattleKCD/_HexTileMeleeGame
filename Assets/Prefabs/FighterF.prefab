@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: -8227739834436886195}
   - component: {fileID: 6941443155374811430}
   m_Layer: 0
-  m_Name: FighterP
+  m_Name: FighterF
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -74,7 +74,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 7dc8f9979325f1347851842b09871145, type: 3}
+  m_Sprite: {fileID: 21300000, guid: fb24d6a2568659d448d045d1fe49881d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -97,4 +97,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d0c03f22b397ae42a43805250da9bc8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rotationBase: 270
+  rotationBase: 90
