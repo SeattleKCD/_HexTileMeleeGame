@@ -52,6 +52,7 @@ public class MapManager : MonoBehaviour
     };
 
     private List<Vector3Int> visitedNodes = new();
+    private List<Vector3Int> engagedNodes = new();
 
     private List<Vector3Int> DetermineNeighborDirections(bool isEven)
     {
@@ -88,6 +89,7 @@ public class MapManager : MonoBehaviour
         {
             curFighter = fighterF;
             curPos = map.WorldToCell(curFighter.transform.position);
+            SetHighlight(curPos, Color.green);
             fFMoving = true;
             performedMove = false;
             performedFace = false;
@@ -99,6 +101,7 @@ public class MapManager : MonoBehaviour
             fighterFUI.SetActive(false);
             curFighter = fighterP;
             curPos = map.WorldToCell(curFighter.transform.position);
+            SetHighlight(curPos, Color.green);
             fPMoving = true;
             performedMove = false;
             performedFace = false;
@@ -144,6 +147,8 @@ public class MapManager : MonoBehaviour
         int rotationIndex = 0;
         List<Vector3Int> neigborNodes = new();
 
+        engagedNodes.Clear();
+
         foreach (Vector3Int direction in DetermineNeighborDirections(curPos.y % 2 == 0))
         {
             neigborNodes.Add(curPos + direction);
@@ -151,6 +156,24 @@ public class MapManager : MonoBehaviour
 
         rotationIndex = neigborNodes.IndexOf(facingLocation);
         Debug.Log("Rotation Index is " + rotationIndex);
+
+        engagedNodes.Add(neigborNodes[rotationIndex]);
+        if (rotationIndex == 0)
+        {
+            engagedNodes.Add(neigborNodes[1]);
+            engagedNodes.Add(neigborNodes[5]);
+        }
+        else if (rotationIndex == 5)
+        {
+            engagedNodes.Add(neigborNodes[0]);
+            engagedNodes.Add(neigborNodes[4]);
+        }
+        else
+        {
+            engagedNodes.Add(neigborNodes[rotationIndex-1]);
+            engagedNodes.Add(neigborNodes[rotationIndex+1]);
+        }
+
         return (float)(rotationBase - 60 * rotationIndex);
     }
 
@@ -184,7 +207,7 @@ public class MapManager : MonoBehaviour
                     visitedNodes.Add(newPosition);
                     SetHighlight(newPosition, highlightColor);
 
-                    if (neighborDistance < highlightRange)
+                    if (neighborDistance < highlightRange && !engagedNodes.Contains(newPosition))
                     {
                         newNeighbor.nodeLocation = newPosition;
                         newNeighbor.nodeDistance = neighborDistance;
