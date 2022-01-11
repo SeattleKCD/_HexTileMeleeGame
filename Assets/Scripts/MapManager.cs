@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.Tilemaps;
 
 
@@ -24,10 +25,13 @@ public class MapManager : MonoBehaviour
     [SerializeField]
     GameObject fighterPUI;
 
-    Fighter fighterF, fighterP, curFighter;
+    public static event Action<bool> FighterFEngaged = delegate { };
+    public static event Action<bool> FighterPEngaged = delegate { };
+
+    Fighter fighterF, fighterP, curFighter, enemyFighter;
     private Vector3Int curPos;
     private int highlightRange;
-    bool performedMove, performedFace, fFMoving, fPMoving = false;
+    bool performedMove, performedFace, fFMoving, fPMoving, curEngaged = false;
 
     private readonly static List<Vector3Int> evenNeighborDirs
         = new()
@@ -53,6 +57,7 @@ public class MapManager : MonoBehaviour
 
     private List<Vector3Int> visitedNodes = new();
     private List<Vector3Int> engagedNodes = new();
+    private List<Vector3Int> adjacentNodes = new();
 
     private List<Vector3Int> DetermineNeighborDirections(bool isEven)
     {
@@ -88,11 +93,22 @@ public class MapManager : MonoBehaviour
         if(!(fFMoving || fPMoving))
         {
             curFighter = fighterF;
+            enemyFighter = fighterP;
             curPos = map.WorldToCell(curFighter.transform.position);
             SetHighlight(curPos, Color.green);
             fFMoving = true;
             performedMove = false;
             performedFace = false;
+            if (engagedNodes.Contains(curPos))
+            {
+                FighterFEngaged(true);
+                curEngaged = true;
+            }
+            else
+            {
+                FighterFEngaged(false);
+                curEngaged = false;
+            }
             fighterFUI.SetActive(true);
         }
         else if (fFMoving && performedMove && performedFace)
@@ -100,12 +116,23 @@ public class MapManager : MonoBehaviour
             fFMoving = false;
             fighterFUI.SetActive(false);
             curFighter = fighterP;
+            enemyFighter = fighterF;
             curPos = map.WorldToCell(curFighter.transform.position);
             SetHighlight(curPos, Color.green);
             fPMoving = true;
             performedMove = false;
             performedFace = false;
             fighterPUI.SetActive(true);
+            if (engagedNodes.Contains(curPos))
+            {
+                FighterPEngaged?.Invoke(true);
+                curEngaged = true;
+            }
+            else
+            {
+                FighterPEngaged?.Invoke(false);
+                curEngaged = false;
+            }
         }
         else if (fPMoving && performedMove && performedFace)
         {
@@ -133,6 +160,14 @@ public class MapManager : MonoBehaviour
                     curFighter.transform.position = map.CellToWorld(gridPosition);
                     curPos = gridPosition;
                     performedMove = true;
+
+                    curFighter.isEngaged = false;
+                    if (engagedNodes.Contains(curPos))
+                    {
+                        curFighter.isEngaged = true;
+                        curFighter.enemyPos = map.WorldToCell(enemyFighter.transform.position);
+                    }
+
                     highlightRange = 1;
                     ShowRangeHighlight(Color.yellow);
                 }
@@ -145,33 +180,33 @@ public class MapManager : MonoBehaviour
     private float CalculateRotation(Vector3Int facingLocation, int rotationBase)
     {
         int rotationIndex = 0;
-        List<Vector3Int> neigborNodes = new();
 
         engagedNodes.Clear();
+        adjacentNodes.Clear();
 
         foreach (Vector3Int direction in DetermineNeighborDirections(curPos.y % 2 == 0))
         {
-            neigborNodes.Add(curPos + direction);
+            adjacentNodes.Add(curPos + direction);
         }
 
-        rotationIndex = neigborNodes.IndexOf(facingLocation);
+        rotationIndex = adjacentNodes.IndexOf(facingLocation);
         Debug.Log("Rotation Index is " + rotationIndex);
 
-        engagedNodes.Add(neigborNodes[rotationIndex]);
+        engagedNodes.Add(adjacentNodes[rotationIndex]);
         if (rotationIndex == 0)
         {
-            engagedNodes.Add(neigborNodes[1]);
-            engagedNodes.Add(neigborNodes[5]);
+            engagedNodes.Add(adjacentNodes[1]);
+            engagedNodes.Add(adjacentNodes[5]);
         }
         else if (rotationIndex == 5)
         {
-            engagedNodes.Add(neigborNodes[0]);
-            engagedNodes.Add(neigborNodes[4]);
+            engagedNodes.Add(adjacentNodes[0]);
+            engagedNodes.Add(adjacentNodes[4]);
         }
         else
         {
-            engagedNodes.Add(neigborNodes[rotationIndex-1]);
-            engagedNodes.Add(neigborNodes[rotationIndex+1]);
+            engagedNodes.Add(adjacentNodes[rotationIndex-1]);
+            engagedNodes.Add(adjacentNodes[rotationIndex+1]);
         }
 
         return (float)(rotationBase - 60 * rotationIndex);
@@ -202,7 +237,10 @@ public class MapManager : MonoBehaviour
             {
                 newPosition = curNode.nodeLocation + direction;
 
-                if (!visitedNodes.Contains(newPosition) && map.HasTile(newPosition))
+                if (!visitedNodes.Contains(newPosition) && map.HasTile(newPosition)
+                    && (performedMove 
+                        || (newPosition != map.WorldToCell(enemyFighter.transform.position)
+                            && (!curEngaged || adjacentNodes.Contains(newPosition)))))
                 {
                     visitedNodes.Add(newPosition);
                     SetHighlight(newPosition, highlightColor);
